@@ -1,0 +1,47 @@
+version: '3.8'
+
+networks:
+  vps_network:
+    driver: bridge
+
+# Ortak log yönetimi (Diskin şişmesini önler)
+x-logging: &default-logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # Nginx Proxy Manager
+  nginx-proxy:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '81:81' # NPM Yönetim Paneli
+    volumes:
+      - ./nginx-proxy-manager/data:/data
+      - ./nginx-proxy-manager/letsencrypt:/etc/letsencrypt
+    networks:
+      - vps_network
+    <<: *default-logging
+
+  # Demo Web Uygulaması (Flask)
+  demo-app:
+    build: ./app
+    container_name: flask-demo-app
+    restart: unless-stopped
+    expose:
+      - '5000'
+    networks:
+      - vps_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    <<: *default-logging
